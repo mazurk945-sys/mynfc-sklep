@@ -6,6 +6,7 @@ import {
   Image as ImageIcon, Tag, Users, Package, Key, ChevronRight,
   Mail, X, Check
 } from 'lucide-react';
+import { generateQRCode } from '../lib/qrcode';
 
 /* --- Helpery --- */
 const plnFmt = (v:string|number) => parseFloat(String(v)).toFixed(2);
@@ -52,18 +53,33 @@ export default function NFCStore() {
 
   const addToCart = (p:any) => { setCart([...cart, p]); pop(`Dodano ${p.name}`); };
 
+  const getStatusLabel = (s: string) => {
+    switch (s) {
+      case 'pending': return 'Złożone';
+      case 'accepted': return 'Przyjęte';
+      case 'shipped': return 'Wysłane';
+      case 'delivered': return 'Odebrane';
+      default: return s;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="min-h-screen bg-zinc-950 text-white selection:bg-blue-500/30">
       <nav className="sticky top-0 z-50 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-xl p-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <button onClick={()=>setView('shop')} className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold">NFC</div>
-             <div className="font-bold text-xl">MYNFC.PL</div>
+             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold shadow-lg shadow-blue-900/20">NFC</div>
+             <div className="font-bold text-xl tracking-tighter">MYNFC.PL</div>
           </button>
           <div className="flex gap-4">
+            {user && user.role !== 'admin' && (
+              <button onClick={()=>setView('orders')} className="hidden lg:flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300">
+                <Package className="w-4 h-4"/> MOJE ZAMÓWIENIA
+              </button>
+            )}
             {user ? (
-              <button onClick={()=>{localStorage.removeItem('nfc_user'); window.location.reload();}} className="text-xs border border-zinc-800 px-3 py-2 rounded-lg">Wyloguj</button>
-            ) : <button onClick={()=>setView('login')} className="text-xs bg-white text-black px-4 py-2 rounded-lg font-bold">Zaloguj</button>}
+              <button onClick={()=>{localStorage.removeItem('nfc_user'); window.location.reload();}} className="text-xs border border-zinc-800 px-3 py-2 rounded-lg text-zinc-500 hover:text-white transition-colors">Wyloguj</button>
+            ) : <button onClick={()=>setView('shop')} className="text-xs bg-white text-black px-4 py-2 rounded-lg font-bold">Zaloguj się</button>}
             <button onClick={()=>setView('cart')} className="bg-zinc-900 p-2 rounded-lg relative"><ShoppingCart className="w-5 h-5"/>{cart.length>0 && <span className="absolute -top-1 -right-1 bg-blue-600 text-[10px] w-4 h-4 flex items-center justify-center rounded-full">{cart.length}</span>}</button>
           </div>
         </div>
@@ -71,40 +87,68 @@ export default function NFCStore() {
 
       <main className="max-w-7xl mx-auto p-6">
         {view === 'shop' && (
-          <div className="grid md:grid-cols-3 gap-6 py-20">
-            {products.length === 0 ? <p className="text-zinc-500">Ładowanie ofert...</p> : products.map(p=>(
-              <div key={p.id} className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800">
-                <h3 className="text-2xl font-bold mb-4">{p.name}</h3>
-                <div className="flex justify-between items-center">
-                  <span className="text-2xl font-black">{plnFmt(p.price)} zł</span>
-                  <button onClick={()=>addToCart(p)} className="p-3 bg-white text-black rounded-xl"><Plus/></button>
+          <div className="py-20">
+            {!user && (
+               <div className="grid md:grid-cols-2 gap-16 items-center mb-24">
+                  <div>
+                    <h1 className="text-7xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-8 uppercase italic">KARTY NFC <span className="text-blue-500">DLA CIEBIE</span></h1>
+                    <p className="text-xl text-zinc-400 max-w-md">Najnowocześniejsze karty NFC spersonalizowane pod Ciebie. Jeden dotyk i Twoje dane są w telefonie klienta.</p>
+                  </div>
+                  <div className="bg-zinc-900 p-10 rounded-[3rem] border border-zinc-800">
+                    <form onSubmit={handleLogin} className="space-y-4">
+                      <h2 className="text-3xl font-bold mb-6">Witaj ponownie</h2>
+                      <input name="email" placeholder="Login" className="w-full bg-black border border-zinc-800 rounded-2xl px-6 py-4 focus:border-blue-600 outline-none"/>
+                      <input name="password" type="password" placeholder="Hasło" className="w-full bg-black border border-zinc-800 rounded-2xl px-6 py-4 focus:border-blue-600 outline-none"/>
+                      <button className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 transition-all uppercase">ZALOGUJ SIĘ</button>
+                    </form>
+                  </div>
+               </div>
+            )}
+            <div className="grid md:grid-cols-3 gap-8">
+              {products.map(p=>(
+                <div key={p.id} className="group relative bg-zinc-900 border border-zinc-800 rounded-[2.5rem] p-10 overflow-hidden hover:border-zinc-600 transition-all">
+                  <h3 className="text-3xl font-bold mb-3">{p.name}</h3>
+                  <div className="flex items-end justify-between pt-6 border-t border-zinc-800/50">
+                    <div className="text-4xl font-black">{plnFmt(p.price)} <span className="text-base font-medium text-zinc-500">zł</span></div>
+                    <button onClick={()=>addToCart(p)} className="p-4 bg-white text-black rounded-3xl hover:scale-110 transition-all"><Plus/></button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
-        {view === 'login' && (
-          <div className="max-w-md mx-auto py-20">
-            <form onSubmit={handleLogin} className="bg-zinc-900 p-10 rounded-3xl border border-zinc-800 space-y-4">
-              <h2 className="text-2xl font-bold mb-6">Zaloguj się</h2>
-              <input name="email" placeholder="Login" className="w-full bg-black p-4 rounded-xl border border-zinc-800"/>
-              <input name="password" type="password" placeholder="Hasło" className="w-full bg-black p-4 rounded-xl border border-zinc-800"/>
-              <button className="w-full py-4 bg-white text-black font-bold rounded-xl">WEJDŹ</button>
-            </form>
+        {view === 'orders' && (
+          <div className="py-10">
+            <h1 className="text-6xl font-black tracking-tighter mb-12 italic uppercase">Moje <span className="text-blue-500">Zamówienia</span></h1>
+            <div className="space-y-6">
+              {(!Array.isArray(orders) || orders.length === 0) ? <div className="text-zinc-500 py-20 text-center bg-zinc-900 border border-zinc-800 rounded-[2.5rem]">Brak zamówień.</div> : orders.map(o=>(
+                <div key={o.id} className="bg-zinc-900 border border-zinc-800 rounded-[2.5rem] p-8 flex items-center justify-between">
+                  <div>
+                    <div className="text-zinc-500 text-[10px] font-black uppercase mb-1">NR {o.id} · {new Date(o.createdAt).toLocaleDateString()}</div>
+                    <div className="text-2xl font-bold">{o.product?.name || 'Karta NFC'}</div>
+                    <div className="text-emerald-500 font-mono font-bold text-sm mt-2">{plnFmt(o.totalAmount)} zł · {getStatusLabel(o.status).toUpperCase()}</div>
+                  </div>
+                  <ChevronRight className="w-8 h-8 text-zinc-800"/>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {view === 'cart' && (
-          <div className="max-w-2xl mx-auto py-20 text-center">
-            <h2 className="text-4xl font-bold mb-10">Twój Koszyk</h2>
-            {cart.map((p,i)=>(<div key={i} className="flex justify-between p-4 bg-zinc-900 rounded-xl mb-2"><span>{p.name}</span><b>{plnFmt(p.price)} zł</b></div>))}
-            <button className="w-full py-5 bg-blue-600 rounded-2xl font-bold mt-10">KUPUJĘ (DOŁADUJ KONTO ABY ZAPŁACIĆ)</button>
+          <div className="max-w-2xl mx-auto py-20">
+            <h2 className="text-5xl font-black tracking-tighter mb-10">KOSZYK</h2>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-[2.5rem] p-10">
+              {cart.map((p,i)=>(<div key={i} className="flex justify-between items-center py-4 border-b border-zinc-800 last:border-0"><span className="font-bold">{p.name}</span><b>{plnFmt(p.price)} zł</b></div>))}
+              {cart.length === 0 && <p className="text-zinc-500 text-center py-10">Koszyk jest pusty</p>}
+              <button className="w-full py-5 bg-blue-600 rounded-2xl font-bold mt-10 hover:bg-blue-500 transition-all uppercase tracking-widest shadow-xl shadow-blue-900/20">KUPUJĘ TERAZ</button>
+            </div>
           </div>
         )}
       </main>
 
-      {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-white text-black px-8 py-4 rounded-full font-bold shadow-2xl">{toast.msg}</div>}
+      {toast && <div className={cls('fixed bottom-8 left-1/2 -translate-x-1/2 px-10 py-5 rounded-[2rem] text-sm font-black shadow-2xl z-50 flex items-center gap-4 transition-all animate-in slide-in-from-bottom duration-300', toast.ok ? 'bg-white text-black' : 'bg-red-600 text-white')}>{toast.msg.toUpperCase()}</div>}
     </div>
   );
 }
