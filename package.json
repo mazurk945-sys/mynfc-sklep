@@ -1,12 +1,7 @@
 {
-  "name": "mynfc-sklep",
-  "version": "1.0.0",
+  "name": "mynfc",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
+  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
   "dependencies": {
     "next": "15.1.0",
     "react": "19.0.0",
